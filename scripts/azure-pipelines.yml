@@ -1,0 +1,30 @@
+stages:
+- template: azure-tf-initialize.yml
+  parameters:  
+    subscriptions:
+    - env: dev
+      code: "dev-subscription-code"
+    - env: uat
+      code: "uat-subscription-code"
+    - env: prod
+      code: "prod-subscription-code"
+
+azure-tf-initialize.yml
+stages:
+# This stage will validates and create terraform pre-requisites such as resource group, storage account & container only if not exists.
+- stage: setup_tf_environment
+  displayName: "Setup Environments"
+  jobs:
+  - ${{ each subscription in parameters.subscriptions }}:
+    - job: setup-tf-${{ subscription.env }}
+      displayName: "Setup Terraform ${{ subscription.env }} environment"
+      continueOnError: 'false'
+      steps:
+      - checkout: self
+      - task: PowerShell@2
+        name: create_pre_requisites
+        displayName: 'Create terraform pre-requisites ${{ subscription.code }}'
+        inputs:
+          filePath: '$(System.DefaultWorkingDirectory)/initialize.ps1'
+          arguments: '-env ${{ subscription.env }} -client_id $(sp-client-id) -client_secret $(sp-client-secret) -tenant_id $(azure-tenant-id) -subscription_id ${{ subscription.code }}'
+          workingDirectory: $(System.DefaultWorkingDirectory)/terraform/
